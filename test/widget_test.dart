@@ -1,30 +1,46 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:backend_service/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets(
+    'native API console selects the real route and rejects invalid POST JSON before sending',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1200, 900);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+      await tester.pumpWidget(const MyApp());
+      await tester.pumpAndSettle();
+      expect(
+        MediaQuery.sizeOf(tester.element(find.byType(Scaffold))),
+        const Size(1200, 900),
+      );
+      Future<void> tapVisible(Finder target) async {
+        expect(target, findsOneWidget);
+        await tester.ensureVisible(target);
+        await tester.pumpAndSettle();
+        expect(target.hitTestable(), findsOneWidget);
+        await tester.tap(target.hitTestable());
+        await tester.pumpAndSettle();
+      }
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
+      expect(find.text('Response will appear here...'), findsOneWidget);
+      await tapVisible(find.text('/api/novel'));
+      await tapVisible(find.text('GET APIs'));
+      await tapVisible(find.text('/getNovels'));
+      final fields = find.byType(TextField);
+      expect(
+        tester.widget<TextField>(fields.at(0)).controller!.text,
+        '/api/novel/getNovels',
+      );
+      await tester.enterText(fields.at(1), '{invalid JSON');
+      await tapVisible(find.widgetWithText(ElevatedButton, 'POST'));
+      expect(
+        find.textContaining('Failed to connect: FormatException'),
+        findsOneWidget,
+      );
+    },
+  );
 }
